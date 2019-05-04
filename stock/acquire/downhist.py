@@ -14,7 +14,8 @@ import os
 import pandas as pd
 import fix_yahoo_finance as yf
 
-root_dir = r"C:\Users\ffz\PycharmProjects\stock\data"
+# root_dir = r"C:\Users\ffz\PycharmProjects\stock\data"
+root_dir = r"D:\MLData\PlayArea\stk\orig"
 history_path = os.path.join(root_dir, "history")
 company_list_path = os.path.join(root_dir, "companylist.csv")
 finished_list_path = os.path.join(root_dir, "finishedList.txt")
