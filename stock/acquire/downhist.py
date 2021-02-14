@@ -9,6 +9,7 @@ Then we can tell whether history is downloaded or not, instead of interrupt the
 downloading for other symbols.
 
 GitHub Test
+GitHut Test second attempt
 """
 
 import os
