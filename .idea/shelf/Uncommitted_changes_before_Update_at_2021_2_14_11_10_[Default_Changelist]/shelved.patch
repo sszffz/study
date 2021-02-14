@@ -1,0 +1,29 @@
+Index: Reinforcement/handson/testTensorboard.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Reinforcement/handson/testTensorboard.py b/Reinforcement/handson/testTensorboard.py
+new file mode 100644
+--- /dev/null	(date 1582488858619)
++++ b/Reinforcement/handson/testTensorboard.py	(date 1582488858619)
+@@ -0,0 +1,15 @@
++import math
++from tensorboardX import SummaryWriter
++
++if __name__ == "__main__":
++    writer = SummaryWriter()
++    funcs = {"sin": math.sin, "cos": math.cos, "tan": math.tan}
++
++    for angle in range(-360, 360):
++        angle_rad = angle * math.pi / 180
++        for name, func in funcs.items():
++            val = func(angle_rad)
++            writer.add_scalar(name, val, angle)
++
++    writer.close()
++
+diff --git a/Reinforcement/__init__.py b/Reinforcement/__init__.py
+new file mode 100644
+diff --git a/Reinforcement/handson/__init__.py b/Reinforcement/handson/__init__.py
+new file mode 100644
