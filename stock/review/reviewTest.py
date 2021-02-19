@@ -11,7 +11,7 @@ from stock.review.stockhistory import StockHistory
 
 code = "AABA"
 path = os.path.join(config.path.stock_history_folder_path, code + ".csv")
-stock = StockHistory(code, path)
+stock = StockHistory(code, from_file=path)
 stock.print()
 # plot(stock.get_open())
 date = stock.date
@@ -19,8 +19,10 @@ daily = stock.open()
 weekly = stock.open(view_mode=ViewMode.WEEKLY)
 monthly = stock.open(view_mode=ViewMode.MONTHLY)
 
-plt.plot(daily)
-plt.plot(weekly)
-plt.plot(monthly)
+# plt.plot(daily)
+# plt.plot(weekly)
+# plt.plot(monthly)
+#
+# plt.show()
 
-plt.show()
+print(stock.range)

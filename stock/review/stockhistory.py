@@ -19,6 +19,11 @@ class StockHistory:
         self.__init_history(**kwargs)
 
     def __init_history(self, **kwargs):
+        """
+        initialize history. So far, only support the initialization from csv file
+        :param kwargs:
+        :return:
+        """
         if "from_file" in kwargs:
             self.__init_history_from_file(kwargs["from_file"])
 
@@ -47,6 +52,10 @@ class StockHistory:
 
     @property
     def size(self):
+        """
+        return the recode of history. The number of trading days in history
+        :return:
+        """
         if self.__history is None:
             return 0
 
@@ -54,7 +63,33 @@ class StockHistory:
 
     @property
     def code(self):
+        """
+        return the code
+        :return:
+        """
         return self.__code
+
+    @property
+    def date(self):
+        """
+        list the all data
+        :return:
+        """
+        if self.is_history_empty():
+            return None
+
+        return self.__history["Date"]
+
+    @property
+    def range(self):
+        """
+        Get the history range
+        :return:
+        """
+        if self.__history is None:
+            return None
+
+        return [self.date[0], self.date[self.size-1]]
 
     def print(self):
         print(self.__history)
@@ -64,32 +99,94 @@ class StockHistory:
         check whether history is empty
         :return:
         """
-        return self.__history is None
+        return self.__history is None or self.__history.shape[0] == 0
 
     def __history_column(self, column: str, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        get the histogram for one column. The column data is processed based on
+        how to average the past data
+
+        :param column:
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         value = self.__history[column]
         value = np.array(value)
         return self.__slice(value, view_mode, start_date, end_date)
 
     def open(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of open value in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("Open", view_mode, start_date, end_date)
 
     def close(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of close value in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("Close", view_mode, start_date, end_date)
 
     def high(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of the highest value in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("High", view_mode, start_date, end_date)
 
     def low(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of the lowest value in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("Low", view_mode, start_date, end_date)
 
     def adj_close(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of adjusted close value in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("Adj Close", view_mode, start_date, end_date)
 
     def volume(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Get the history of volume in a trading day
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__history_column("Volume", view_mode, start_date, end_date)
 
     def __slice(self, value, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+        """
+        Slice the input data based on input start date and end date.
+        If start date is not specified, the start date is from the earliest day.
+        If end date is not specified, the end date is the last day in database.
+        :param value:
+        :param view_mode:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         if view_mode == ViewMode.DAILY:
             return self.__slice_daily(value, start_date, end_date)
         elif view_mode == ViewMode.WEEKLY:
@@ -108,6 +205,13 @@ class StockHistory:
             raise Exception("Un-support slice way: " + str(view_mode))
 
     def __slice_daily(self, value, start_date=None, end_date=None):
+        """
+        slice value on daily base
+        :param value:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         start_index = 0
         end_index = self.size
         if start_date is not None:
@@ -117,6 +221,14 @@ class StockHistory:
         return value[start_index:end_index]
 
     def __slice_avg(self, value, num_avg_day: int, start_date=None, end_date=None):
+        """
+        slice value on average
+        :param value:
+        :param num_avg_day:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         start_index = 0
         end_index = self.size
         if start_date is not None:
@@ -143,15 +255,26 @@ class StockHistory:
         return avg
 
     def __slice_weekly(self, value, start_date=None, end_date=None):
+        """
+        Slice value on weekly base. It calculates the averaged value in the last five days
+        :param value:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__slice_avg(value, 5, start_date, end_date)
 
     def __slice_monthly(self, value, start_date=None, end_date=None):
+        """
+        Slice value on monthly base. It calculates the averaged value in the last twenty days
+        :param value:
+        :param start_date:
+        :param end_date:
+        :return:
+        """
         return self.__slice_avg(value, 20, start_date, end_date)
 
     def __slice_yearly(self, value, start_date=None, end_date=None):
         raise Exception("unimplemented yet")
 
-    @property
-    def date(self):
-        return self.__history["Date"]
 
