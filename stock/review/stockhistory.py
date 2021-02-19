@@ -155,18 +155,3 @@ class StockHistory:
     def date(self):
         return self.__history["Date"]
 
-
-if __name__ == "__main__":
-    # file_path = r"C:\Users\ffz\Documents\Important\stockData\history\AABA.csv"
-    # a = pd.read_csv(file_path)
-#     print("stop")
-    stock = StockHistory("AABA", from_file=r"C:\Users\ffz\Documents\Important\stockData\history\AABA.csv")
-    stock.print()
-    # plot(stock.get_open())
-    date = stock.date
-    daily = stock.open()
-    weekly = stock.open(view_mode=ViewMode.WEEKLY)
-    monthly = stock.open(view_mode=ViewMode.WEEKLY)
-
-
-    print('stop')

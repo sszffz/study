@@ -11,7 +11,7 @@ from stock.review.stockhistory import StockHistory
 
 code = "AABA"
 path = os.path.join(config.path.stock_history_folder_path, code + ".csv")
-stock = StockHistory(code, from_file=r"C:\Users\ffz\Documents\Important\stockData\history\AABA.csv")
+stock = StockHistory(code, path)
 stock.print()
 # plot(stock.get_open())
 date = stock.date
