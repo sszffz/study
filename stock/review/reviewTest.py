@@ -33,13 +33,25 @@ from stock.review.stockhistory import StockHistory
 # stock.update()
 
 
-ticker = 'AAPL'
-# ticker = 'AABA'
-# st = YahooFinancials(ticker)
-# historical_stock_prices = st.get_historical_price_data('2019-09-15', '2020-09-15', 'weekly')
+# ticker = 'AAPL'
+# # ticker = 'AABA'
+# # st = YahooFinancials(ticker)
+# # historical_stock_prices = st.get_historical_price_data('2019-09-15', '2020-09-15', 'weekly')
+#
+#
+# stock = StockHistory(ticker)
+# stock.update()
+# from stock.review.stockmanager import StockManager
+#
+from stock.review.stockmanager import StockManager
 
-
-stock = StockHistory(ticker)
-stock.update()
+manager = StockManager()
+# print(manager.company_size)
+manager.update_all_history()
+# print(manager.sectors)
+# print(manager.industries)
+# from utils.log import log
+#
+# log("test")
 
 print("stop here")

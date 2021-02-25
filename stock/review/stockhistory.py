@@ -13,6 +13,7 @@ from yahoofinancials import YahooFinancials
 
 from security.config import config
 from stock.review.stockenum import ViewMode
+from utils.log import log
 
 
 class StockHistory:
@@ -27,10 +28,8 @@ class StockHistory:
 
     __EARLIEST_HISTORY_DATE = "1980-01-01"
 
-    def __init__(self, code: str):
-        self.__code: str = code
-        # self.__history: pd.DataFrame = pd.DataFrame()
-        # self.__database_file_path: str = self.__default_data_file_path()
+    def __init__(self, symbol: str):
+        self.__symbol: str = symbol
         self.__init_history()
 
     def __default_data_file_path(self) -> str:
@@ -38,7 +37,7 @@ class StockHistory:
         get the default database file path
         :return:
         """
-        file_name = self.code + ".csv"
+        file_name = self.symbol + ".csv"
         return os.path.join(config.path.stock_history_folder_path, file_name)
 
     def __init_history(self):
@@ -50,6 +49,7 @@ class StockHistory:
         """
         self.__database_file_path: str = self.__default_data_file_path()
         if not os.path.isfile(self.__database_file_path):
+            log("history file does not exist for {}. create an empty one".format(self.symbol))
             with open(self.__database_file_path, "w") as fp:
                 fp.write("{},{},{},{},{},{},{}\n".format(self.__DATE,
                                                          self.__OPEN,
@@ -59,7 +59,7 @@ class StockHistory:
                                                          self.__ADJ_CLOSE,
                                                          self.__VOLUME))
 
-        self.__history = pd.read_csv(self.__database_file_path)
+        self.__history: pd.DataFrame = pd.read_csv(self.__database_file_path)
 
     @property
     def size(self):
@@ -73,12 +73,12 @@ class StockHistory:
         return self.__history.shape[0]
 
     @property
-    def code(self):
+    def symbol(self):
         """
         return the code
         :return:
         """
-        return self.__code
+        return self.__symbol
 
     @property
     def date(self):
@@ -345,7 +345,7 @@ class StockHistory:
         :param history_data:
         :return:
         """
-        history_info = history_data[self.code]
+        history_info = history_data[self.symbol]
         if "eventsData" in history_info:
             events_data = history_info["eventsData"]
             if events_data is not None and "splits" in events_data:
@@ -387,10 +387,10 @@ class StockHistory:
         """
         if history_data is None or \
                 not isinstance(history_data, dict) or \
-                self.code not in history_data:
+                self.symbol not in history_data:
             return False
 
-        history_info = history_data[self.code]
+        history_info = history_data[self.symbol]
         if history_info is None or \
                 "prices" not in history_info:
             return False
@@ -409,7 +409,7 @@ class StockHistory:
         :param history_data:
         :return:
         """
-        entry_list = history_data[self.__code]["prices"]
+        entry_list = history_data[self.__symbol]["prices"]
 
         history_list = []
         for entry in entry_list:
@@ -434,11 +434,15 @@ class StockHistory:
         :return:
         """
         if self.__database_file_path is None:
-            print("database file path is not specified")
+            self.log("Error: database file path is not specified")
             return
 
         if not os.path.isfile(self.__database_file_path):
-            print("database file - {} - does not exist".format(self.__database_file_path))
+            self.log("Error: database file - {} - does not exist".format(self.__database_file_path))
+            return
+
+        if history is None or len(history) == 0:
+            self.log("Info: no history data is retrieved.")
             return
 
         with open(self.__database_file_path, "a") as fp:
@@ -450,6 +454,9 @@ class StockHistory:
                                                          entry[self.__CLOSE],
                                                          entry[self.__ADJ_CLOSE],
                                                          entry[self.__VOLUME]))
+
+        self.log("Info: the record in database was updated from {} to {}".format(history[0][self.__DATE],
+                                                                                 history[-1][self.__DATE]))
 
     def __update_history(self, history):
         """
@@ -489,21 +496,21 @@ class StockHistory:
         :return:
         """
         if self.is_update_to_date():
-            print("{} is already update-to-date".format(self.code))
+            self.log("Info: already update-to-date")
             return
 
-        print("downloading {}".format(self.code))
+        self.log("Info: downloading")
         start_date = self.__get_state_date_for_update()
         end_date = self.datetime_to_str(datetime.now())
-        financial = YahooFinancials(self.code)
+        financial = YahooFinancials(self.symbol)
         history_data = financial.get_historical_price_data(start_date, end_date, "daily")
 
         if not self.__is_history_data_valid(history_data):
-            print("fail to extract history data")
+            self.log("Warn: fail to extract history data")
             return
 
         if self.__has_splits(history_data):
-            print("split occurs during updating. back up old history and rebuild database")
+            self.log("Info: split occurs during updating. back up old history and rebuild database")
             history_data = financial.get_historical_price_data(self.__EARLIEST_HISTORY_DATE,
                                                                self.datetime_to_str(datetime.now()),
                                                                "daily")
@@ -513,3 +520,11 @@ class StockHistory:
             self.__extract_history_data(history_data, update_database, update_memory)
         else:
             self.__extract_history_data(history_data, update_database, update_memory)
+
+    def log(self, info: str):
+        """
+        log information
+        :param info:
+        :return:
+        """
+        log("{}: {}".format(self.symbol, info))

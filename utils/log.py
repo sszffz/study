@@ -6,16 +6,29 @@ import logging
 
 import logging.handlers
 import os
+import sys
 from datetime import datetime
 
-from security import pathinfo
+from security.config import config
 
-handler = logging.handlers.WatchedFileHandler(os.environ.get("LOGFILE", pathinfo.get_log_file_path()))
+handler = logging.handlers.WatchedFileHandler(os.environ.get("LOGFILE", config.path.log_file_path))
+stdout_handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter(logging.BASIC_FORMAT)
 handler.setFormatter(formatter)
 root = logging.getLogger()
 root.setLevel(os.environ.get("LOGLEVEL", "INFO"))
 root.addHandler(handler)
+root.addHandler(stdout_handler)
+
+# file_handler = logging.FileHandler(filename=config.path.log_file_path)
+# stdout_handler = logging.StreamHandler(sys.stdout)
+# handlers = [file_handler, stdout_handler]
+
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+#     handlers=handlers
+# )
 
 
 def log(text: str):
