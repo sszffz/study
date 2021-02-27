@@ -2,43 +2,35 @@
 Utilities for history of stocks
 """
 import os
+from datetime import datetime
 
-from security.config import config
 
-
-def get_stock_history_file_path(code: str) -> str:
+def str_to_datetime(time: str):
     """
-    get the file path for a specified code
-    :param code:
+    convert a string to a datetime. The format of the string is like "1980-12-30"
+    :param time:
     :return:
     """
-    database_path = config.path.stock_history_folder_path
-    if not database_path or not os.path.isdir(database_path):
-        raise Exception("database path does not exist")
-
-    stock_file_name = code + ".csv"
-    stock_file_path = os.path.join(database_path, stock_file_name)
-    if os.path.isfile(stock_file_path):
-        stock_file_name = None
-
-    return stock_file_name
+    return datetime.strptime(time, "%Y-%m-%d")
 
 
-def has_stock(code: str) -> bool:
+def datetime_to_str(time):
     """
-    check whether there is history for specified stock. It checks the database
-    and get the corresponding file.
-    :param code:
+    convert a date time to string
+    :param time:
     :return:
     """
-    stock_file_path = get_stock_history_file_path()
-    return stock_file_path is not None
+    return time.strftime("%Y-%m-%d")
 
 
-def get_stock_history(code: str):
+def get_delta_days(start_date: str, end_date: str) -> int:
     """
-    get all history for a specified stock
-    :param code:
+    count how many days from start date to end date
+    :param start_date:
+    :param end_date:
     :return:
     """
-    stock_file_path = get_stock_history_file_path()
+    start = str_to_datetime(start_date)
+    end = str_to_datetime(end_date)
+    delta = (end - start)
+    return delta.days

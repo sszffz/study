@@ -2,9 +2,9 @@
 get the stock history
 """
 import os
+import sys
 from bisect import bisect_left, bisect_right
 from datetime import datetime, timedelta
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,8 @@ import pandas as pd
 from yahoofinancials import YahooFinancials
 
 from security.config import config
-from stock.review.stockenum import ViewMode
+from stock.review.historyutils import datetime_to_str, str_to_datetime, get_delta_days
+from stock.review.stockenum import ViewMode, HistoryDataFailureType
 from utils.log import log
 
 
@@ -26,7 +27,11 @@ class StockHistory:
     __ADJ_CLOSE = "Adj Close"
     __VOLUME = "Volume"
 
+    # The earliest day to extract history if there is no record for a stock
     __EARLIEST_HISTORY_DATE = "1980-01-01"
+
+    # If no prices for the last n days, we still consider the extracting success
+    __MAX_EMPTY_RECORD_DAYS = 14
 
     def __init__(self, symbol: str):
         self.__symbol: str = symbol
@@ -49,7 +54,7 @@ class StockHistory:
         """
         self.__database_file_path: str = self.__default_data_file_path()
         if not os.path.isfile(self.__database_file_path):
-            log("history file does not exist for {}. create an empty one".format(self.symbol))
+            self.__log("history file does not exist. create an empty one")
             with open(self.__database_file_path, "w") as fp:
                 fp.write("{},{},{},{},{},{},{}\n".format(self.__DATE,
                                                          self.__OPEN,
@@ -97,10 +102,18 @@ class StockHistory:
         Get the history range
         :return:
         """
-        if self.__history is None:
+        if self.__history is None or self.size == 0:
             return None
 
         return [self.date[0], self.date[self.size-1]]
+
+    @property
+    def last_record_date(self):
+        """
+        get last update date
+        :return:
+        """
+        return None if self.date_range is None else self.date_range[1]
 
     def __get_state_date_for_update(self) -> str:
         """
@@ -111,27 +124,9 @@ class StockHistory:
         if self.date_range is None:
             return "1980-12-30"
 
-        last_date = self.str_to_datetime(self.date_range[1])
+        last_date = str_to_datetime(self.date_range[1])
         update_date = last_date + timedelta(days=1)
-        return self.datetime_to_str(update_date)
-
-    @staticmethod
-    def datetime_to_str(time):
-        """
-        convert a date time to string
-        :param time:
-        :return:
-        """
-        return time.strftime("%Y-%m-%d")
-
-    @staticmethod
-    def str_to_datetime(time: str):
-        """
-        convert a string to a datetime. The format of the string is like "1980-12-30"
-        :param time:
-        :return:
-        """
-        return datetime.strptime(time, "%Y-%m-%d")
+        return datetime_to_str(update_date)
 
     def print(self):
         print(self.__history)
@@ -327,7 +322,7 @@ class StockHistory:
         if self.date_range is None:
             return False
 
-        last_date = self.str_to_datetime(self.date_range[1])
+        last_date = str_to_datetime(self.date_range[1])
         curr_date = datetime.now()
         time_delta = curr_date - last_date
         return time_delta.days <= 1
@@ -358,7 +353,7 @@ class StockHistory:
 
         return False
 
-    def __is_history_data_valid(self, history_data):
+    def __is_history_data_valid(self, history_data) -> HistoryDataFailureType:
         """
         Check whether download history data is valid
         the format of history data is like the follows:
@@ -385,23 +380,33 @@ class StockHistory:
         :param history_data:
         :return:
         """
-        if history_data is None or \
-                not isinstance(history_data, dict) or \
-                self.symbol not in history_data:
-            return False
+        if history_data is None:
+            return HistoryDataFailureType.NONE_DATA
+
+        if not isinstance(history_data, dict):
+            return HistoryDataFailureType.NOT_DICT_DATA
+
+        if self.symbol not in history_data:
+            return HistoryDataFailureType.NOT_INCLUDE_SYMBOL
 
         history_info = history_data[self.symbol]
-        if history_info is None or \
-                "prices" not in history_info:
-            return False
+        if history_info is None:
+            return HistoryDataFailureType.NONE_HISTORY_INFO
+
+        if "prices" not in history_info:
+            return HistoryDataFailureType.NO_PRICES_ENTRY
 
         info_list = history_info["prices"]
-        if info_list is None or \
-                not isinstance(info_list, list) or \
-                len(info_list) == 0:
-            return False
+        if info_list is None:
+            return HistoryDataFailureType.NO_RECORD
 
-        return True
+        if not isinstance(info_list, list):
+            return HistoryDataFailureType.NOT_LIST_RECORD
+
+        if len(info_list) == 0:
+            return HistoryDataFailureType.EMPTY_RECORD
+
+        return HistoryDataFailureType.SUCCESS
 
     def __extract_history_data(self, history_data, update_database: bool = True, update_memory: bool = True):
         """
@@ -434,15 +439,15 @@ class StockHistory:
         :return:
         """
         if self.__database_file_path is None:
-            self.log("Error: database file path is not specified")
+            self.__log("Error: database file path is not specified")
             return
 
         if not os.path.isfile(self.__database_file_path):
-            self.log("Error: database file - {} - does not exist".format(self.__database_file_path))
+            self.__log("Error: database file - {} - does not exist".format(self.__database_file_path))
             return
 
         if history is None or len(history) == 0:
-            self.log("Info: no history data is retrieved.")
+            self.__log("Info: no history data is retrieved.")
             return
 
         with open(self.__database_file_path, "a") as fp:
@@ -455,8 +460,8 @@ class StockHistory:
                                                          entry[self.__ADJ_CLOSE],
                                                          entry[self.__VOLUME]))
 
-        self.log("Info: the record in database was updated from {} to {}".format(history[0][self.__DATE],
-                                                                                 history[-1][self.__DATE]))
+        self.__log("Info: the record in database was updated from {} to {}".format(history[0][self.__DATE],
+                                                                                   history[-1][self.__DATE]))
 
     def __update_history(self, history):
         """
@@ -464,9 +469,7 @@ class StockHistory:
         :param history:
         :return:
         """
-        old_history = self.__history
         self.__history = self.__history.append(history, ignore_index=True)
-        del old_history
 
     def __back_database_file(self):
         """
@@ -485,7 +488,8 @@ class StockHistory:
 
         os.rename(self.__database_file_path, dst_file)
 
-    def update(self, update_database: bool = True, update_memory: bool = True):
+    # noinspection PyBroadException
+    def update(self, update_database: bool = True, update_memory: bool = True) -> HistoryDataFailureType:
         """
         update the database to update-to-date.
         The supported time interval for download is "daily", "weekly", "monthly"
@@ -496,32 +500,50 @@ class StockHistory:
         :return:
         """
         if self.is_update_to_date():
-            self.log("Info: already update-to-date")
-            return
+            self.__log("Info: already update-to-date")
+            return HistoryDataFailureType.SUCCESS
 
-        self.log("Info: downloading")
-        start_date = self.__get_state_date_for_update()
-        end_date = self.datetime_to_str(datetime.now())
-        financial = YahooFinancials(self.symbol)
-        history_data = financial.get_historical_price_data(start_date, end_date, "daily")
+        try:
+            self.__log("Info: downloading")
+            start_date = self.__get_state_date_for_update()
+            end_date = datetime_to_str(datetime.now())
+            financial = YahooFinancials(self.symbol)
+            history_data = financial.get_historical_price_data(start_date, end_date, "daily")
+            delta_days = get_delta_days(start_date, end_date)
 
-        if not self.__is_history_data_valid(history_data):
-            self.log("Warn: fail to extract history data")
-            return
+            failure_type = self.__is_history_data_valid(history_data)
+            if failure_type != HistoryDataFailureType.SUCCESS:
+                if failure_type == HistoryDataFailureType.EMPTY_RECORD and \
+                        delta_days < self.__MAX_EMPTY_RECORD_DAYS:
+                    # if there is no record for two weeks, we still consider it is
+                    # a successful extraction with regard to holiday and weekends
+                    self.__log("no prices for {} days, less than the threshold {}. "
+                               "still success".format(delta_days,
+                                                      self.__MAX_EMPTY_RECORD_DAYS))
+                    return HistoryDataFailureType.SUCCESS
+                else:
+                    self.__log("Warn: fail to extract history data due to " + str(failure_type))
+                    return failure_type
 
-        if self.__has_splits(history_data):
-            self.log("Info: split occurs during updating. back up old history and rebuild database")
-            history_data = financial.get_historical_price_data(self.__EARLIEST_HISTORY_DATE,
-                                                               self.datetime_to_str(datetime.now()),
-                                                               "daily")
-            del self.__history
-            self.__back_database_file()
-            self.__init_history()
-            self.__extract_history_data(history_data, update_database, update_memory)
-        else:
-            self.__extract_history_data(history_data, update_database, update_memory)
+            if self.__has_splits(history_data):
+                self.__log("Info: split occurs during updating. back up old history and rebuild database")
+                history_data = financial.get_historical_price_data(self.__EARLIEST_HISTORY_DATE,
+                                                                   datetime_to_str(datetime.now()),
+                                                                   "daily")
+                del self.__history
+                self.__back_database_file()
+                self.__init_history()
+                self.__extract_history_data(history_data, update_database, update_memory)
+            else:
+                self.__extract_history_data(history_data, update_database, update_memory)
 
-    def log(self, info: str):
+            return HistoryDataFailureType.SUCCESS
+        except:
+            e = sys.exc_info()[0]
+            self.__log("Error: {}".format(str(e)))
+            return HistoryDataFailureType.UNSPECIFIED
+
+    def __log(self, info: str):
         """
         log information
         :param info:
