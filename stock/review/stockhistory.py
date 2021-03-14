@@ -13,19 +13,13 @@ from yahoofinancials import YahooFinancials
 
 from security.config import config
 from stock.review.historyutils import datetime_to_str, str_to_datetime, get_delta_days
-from stock.review.stockenum import ViewMode, HistoryDataFailureType
+from stock.review.stockenum import ViewMode, HistoryDataFailureType, PriceType
 from utils.log import log
 
 
 class StockHistory:
 
     __DATE = "Date"
-    __OPEN = "Open"
-    __HIGH = "High"
-    __LOW = "Low"
-    __CLOSE = "Close"
-    __ADJ_CLOSE = "Adj Close"
-    __VOLUME = "Volume"
 
     # The earliest day to extract history if there is no record for a stock
     __EARLIEST_HISTORY_DATE = "1980-01-01"
@@ -57,12 +51,12 @@ class StockHistory:
             self.__log("history file does not exist. create an empty one")
             with open(self.__database_file_path, "w") as fp:
                 fp.write("{},{},{},{},{},{},{}\n".format(self.__DATE,
-                                                         self.__OPEN,
-                                                         self.__HIGH,
-                                                         self.__LOW,
-                                                         self.__CLOSE,
-                                                         self.__ADJ_CLOSE,
-                                                         self.__VOLUME))
+                                                         str(PriceType.OPEN),
+                                                         str(PriceType.HIGH),
+                                                         str(PriceType.LOW),
+                                                         str(PriceType.CLOSE),
+                                                         str(PriceType.ADJ_CLOSE),
+                                                         str(PriceType.VOLUME)))
 
         self.__history: pd.DataFrame = pd.read_csv(self.__database_file_path)
 
@@ -138,80 +132,45 @@ class StockHistory:
         """
         return self.__history is None or self.__history.shape[0] == 0
 
-    def __history_column(self, column: str, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+    @staticmethod
+    def __calc_rate(array: np.array) -> np.array:
+        """
+        Given a np array, calculate the increase/decrease
+        :param array:
+        :return:
+        """
+        if len(array) < 2:
+            return np.array([])
+
+        return (array[1:] - array[0:-1])/array[0:-1]
+
+    def history(self, price_type: PriceType = PriceType.OPEN, view_mode: ViewMode = ViewMode.DAILY, start_date=None,
+                end_date=None):
         """
         get the histogram for one column. The column data is processed based on
         how to average the past data
 
-        :param column:
+        :param price_type:
         :param view_mode:
         :param start_date:
         :param end_date:
         :return:
         """
-        value = self.__history[column]
+        value = self.__history[str(price_type)]
         value = np.array(value)
         return self.__slice(value, view_mode, start_date, end_date)
 
-    def open(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
+    def history_rate(self, price_type: PriceType = PriceType.OPEN, view_mode: ViewMode = ViewMode.DAILY,
+                     start_date=None, end_date=None):
         """
-        Get the history of open value in a trading day
+        get the rate change
+        :param price_type:
         :param view_mode:
         :param start_date:
         :param end_date:
         :return:
         """
-        return self.__history_column(self.__OPEN, view_mode, start_date, end_date)
-
-    def close(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
-        """
-        Get the history of close value in a trading day
-        :param view_mode:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-        return self.__history_column(self.__CLOSE, view_mode, start_date, end_date)
-
-    def high(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
-        """
-        Get the history of the highest value in a trading day
-        :param view_mode:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-        return self.__history_column(self.__HIGH, view_mode, start_date, end_date)
-
-    def low(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
-        """
-        Get the history of the lowest value in a trading day
-        :param view_mode:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-        return self.__history_column(self.__LOW, view_mode, start_date, end_date)
-
-    def adj_close(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
-        """
-        Get the history of adjusted close value in a trading day
-        :param view_mode:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-        return self.__history_column(self.__ADJ_CLOSE, view_mode, start_date, end_date)
-
-    def volume(self, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
-        """
-        Get the history of volume in a trading day
-        :param view_mode:
-        :param start_date:
-        :param end_date:
-        :return:
-        """
-        return self.__history_column(self.__VOLUME, view_mode, start_date, end_date)
+        return self.__calc_rate(self.history(price_type, view_mode, start_date, end_date))
 
     def __slice(self, value, view_mode: ViewMode = ViewMode.DAILY, start_date=None, end_date=None):
         """
@@ -419,12 +378,12 @@ class StockHistory:
         history_list = []
         for entry in entry_list:
             history_list.append({StockHistory.__DATE: entry["formatted_date"],
-                                 StockHistory.__OPEN: entry["open"],
-                                 StockHistory.__CLOSE: entry["close"],
-                                 StockHistory.__HIGH: entry["high"],
-                                 StockHistory.__LOW: entry["low"],
-                                 StockHistory.__ADJ_CLOSE: entry["adjclose"],
-                                 StockHistory.__VOLUME: entry["volume"]})
+                                 str(PriceType.OPEN): entry["open"],
+                                 str(PriceType.CLOSE): entry["close"],
+                                 str(PriceType.HIGH): entry["high"],
+                                 str(PriceType.LOW): entry["low"],
+                                 str(PriceType.ADJ_CLOSE): entry["adjclose"],
+                                 str(PriceType.VOLUME): entry["volume"]})
 
         if update_database:
             self.__update_database(history_list)
@@ -453,12 +412,12 @@ class StockHistory:
         with open(self.__database_file_path, "a") as fp:
             for entry in history:
                 fp.write("{},{},{},{},{},{},{}\n".format(entry[self.__DATE],
-                                                         entry[self.__OPEN],
-                                                         entry[self.__HIGH],
-                                                         entry[self.__LOW],
-                                                         entry[self.__CLOSE],
-                                                         entry[self.__ADJ_CLOSE],
-                                                         entry[self.__VOLUME]))
+                                                         str(PriceType.OPEN),
+                                                         str(PriceType.HIGH),
+                                                         str(PriceType.LOW),
+                                                         str(PriceType.CLOSE),
+                                                         str(PriceType.ADJ_CLOSE),
+                                                         str(PriceType.VOLUME)))
 
         self.__log("Info: the record in database was updated from {} to {}".format(history[0][self.__DATE],
                                                                                    history[-1][self.__DATE]))

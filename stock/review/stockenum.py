@@ -18,6 +18,21 @@ class ViewMode(Enum):
     AVERAGE_TWENTY = 7
 
 
+class PriceType(Enum):
+    """
+    stock price type
+    """
+    OPEN = (1, "Open")
+    CLOSE = (2, "Close")
+    HIGH = (3, "High")
+    LOW = (4, "Low")
+    ADJ_CLOSE = (5, "Adj Close")
+    VOLUME = (6, "Volume")
+
+    def __str__(self):
+        return self.value[1]
+
+
 class HistoryDataFailureType(Enum):
     """
     Failure type when extract history type
@@ -31,7 +46,8 @@ class HistoryDataFailureType(Enum):
     NO_RECORD = (6, "records are None")
     NOT_LIST_RECORD = (7, "records are not a list")
     EMPTY_RECORD = (8, "empty record")
-    UNSPECIFIED = (9, "unspecified error")
+    INTERNET_NOT_ACCESSIBLE = (9, "Internet is unaccessible")
+    UNSPECIFIED = (10, "unspecified error")
 
     def __str__(self):
         return self.value[1]
