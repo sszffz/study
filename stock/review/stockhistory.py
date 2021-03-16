@@ -22,7 +22,7 @@ class StockHistory:
     __DATE = "Date"
 
     # The earliest day to extract history if there is no record for a stock
-    __EARLIEST_HISTORY_DATE = "1980-01-01"
+    EARLIEST_HISTORY_DATE = "1980-01-01"
 
     # If no prices for the last n days, we still consider the extracting success
     __MAX_EMPTY_RECORD_DAYS = 14
@@ -37,7 +37,7 @@ class StockHistory:
         :return:
         """
         file_name = self.symbol + ".csv"
-        return os.path.join(config.path.stock_history_folder_path, file_name)
+        return os.path.join(config.path.stock_history_folder_path, file_name[0], file_name)
 
     def __init_history(self):
         """
@@ -375,8 +375,18 @@ class StockHistory:
         """
         entry_list = history_data[self.__symbol]["prices"]
 
+        # we only update the history that are later than the last history record
+        date_range = self.date_range
+        if date_range is None:
+            last_record_date = self.EARLIEST_HISTORY_DATE
+        else:
+            last_record_date = date_range[1]
+
         history_list = []
         for entry in entry_list:
+            if entry["formatted_date"] <= last_record_date:
+                continue
+
             history_list.append({StockHistory.__DATE: entry["formatted_date"],
                                  str(PriceType.OPEN): entry["open"],
                                  str(PriceType.CLOSE): entry["close"],
@@ -412,12 +422,12 @@ class StockHistory:
         with open(self.__database_file_path, "a") as fp:
             for entry in history:
                 fp.write("{},{},{},{},{},{},{}\n".format(entry[self.__DATE],
-                                                         str(PriceType.OPEN),
-                                                         str(PriceType.HIGH),
-                                                         str(PriceType.LOW),
-                                                         str(PriceType.CLOSE),
-                                                         str(PriceType.ADJ_CLOSE),
-                                                         str(PriceType.VOLUME)))
+                                                         entry[str(PriceType.OPEN)],
+                                                         entry[str(PriceType.HIGH)],
+                                                         entry[str(PriceType.LOW)],
+                                                         entry[str(PriceType.CLOSE)],
+                                                         entry[str(PriceType.ADJ_CLOSE)],
+                                                         entry[str(PriceType.VOLUME)]))
 
         self.__log("Info: the record in database was updated from {} to {}".format(history[0][self.__DATE],
                                                                                    history[-1][self.__DATE]))
@@ -428,7 +438,8 @@ class StockHistory:
         :param history:
         :return:
         """
-        self.__history = self.__history.append(history, ignore_index=True)
+        if history:
+            self.__history = self.__history.append(history, ignore_index=True)
 
     def __back_database_file(self):
         """
@@ -468,39 +479,56 @@ class StockHistory:
             end_date = datetime_to_str(datetime.now())
             financial = YahooFinancials(self.symbol)
             history_data = financial.get_historical_price_data(start_date, end_date, "daily")
-            delta_days = get_delta_days(start_date, end_date)
-
-            failure_type = self.__is_history_data_valid(history_data)
-            if failure_type != HistoryDataFailureType.SUCCESS:
-                if failure_type == HistoryDataFailureType.EMPTY_RECORD and \
-                        delta_days < self.__MAX_EMPTY_RECORD_DAYS:
-                    # if there is no record for two weeks, we still consider it is
-                    # a successful extraction with regard to holiday and weekends
-                    self.__log("no prices for {} days, less than the threshold {}. "
-                               "still success".format(delta_days,
-                                                      self.__MAX_EMPTY_RECORD_DAYS))
-                    return HistoryDataFailureType.SUCCESS
-                else:
-                    self.__log("Warn: fail to extract history data due to " + str(failure_type))
-                    return failure_type
-
-            if self.__has_splits(history_data):
-                self.__log("Info: split occurs during updating. back up old history and rebuild database")
-                history_data = financial.get_historical_price_data(self.__EARLIEST_HISTORY_DATE,
-                                                                   datetime_to_str(datetime.now()),
-                                                                   "daily")
-                del self.__history
-                self.__back_database_file()
-                self.__init_history()
-                self.__extract_history_data(history_data, update_database, update_memory)
-            else:
-                self.__extract_history_data(history_data, update_database, update_memory)
-
-            return HistoryDataFailureType.SUCCESS
+            return self.update_history_from_server_data(history_data, start_date, end_date, update_database,
+                                                        update_memory)
         except:
             e = sys.exc_info()[0]
             self.__log("Error: {}".format(str(e)))
             return HistoryDataFailureType.UNSPECIFIED
+
+    def update_history_from_server_data(self, history_data, start_date: str, end_date: str,
+                                        update_database: bool = True,
+                                        update_memory: bool = True) -> HistoryDataFailureType:
+        """
+        Given the data acquired from server, update history
+        :param update_memory:
+        :param update_database:
+        :param end_date:
+        :param start_date:
+        :param history_data:
+        :return:
+        """
+        delta_days = get_delta_days(start_date, end_date)
+
+        failure_type = self.__is_history_data_valid(history_data)
+        if failure_type != HistoryDataFailureType.SUCCESS:
+            if failure_type == HistoryDataFailureType.EMPTY_RECORD and \
+                    delta_days < self.__MAX_EMPTY_RECORD_DAYS:
+                # if there is no record for two weeks, we still consider it is
+                # a successful extraction with regard to holiday and weekends
+                self.__log("no prices for {} days, less than the threshold {}. "
+                           "still success".format(delta_days,
+                                                  self.__MAX_EMPTY_RECORD_DAYS))
+                return HistoryDataFailureType.SUCCESS
+            else:
+                self.__log("Warn: fail to extract history data due to " + str(failure_type))
+                return failure_type
+
+        if self.__has_splits(history_data):
+            # if there is a split, get all history again
+            self.__log("Info: split occurs during updating. back up old history and rebuild database")
+            financial = YahooFinancials(self.symbol)
+            history_data = financial.get_historical_price_data(self.EARLIEST_HISTORY_DATE,
+                                                               datetime_to_str(datetime.now()),
+                                                               "daily")
+            del self.__history
+            self.__back_database_file()
+            self.__init_history()
+            self.__extract_history_data(history_data, update_database, update_memory)
+        else:
+            self.__extract_history_data(history_data, update_database, update_memory)
+
+        return HistoryDataFailureType.SUCCESS
 
     def __log(self, info: str):
         """

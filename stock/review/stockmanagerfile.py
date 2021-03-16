@@ -4,7 +4,7 @@ manage all stocks
 import os
 from datetime import datetime
 from shutil import copyfile
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 
@@ -177,19 +177,6 @@ class StockManagerFile(StockManager):
 
         return stock_state.attempts
 
-    # def is_active(self, symbol: str) -> bool:
-    #     """
-    #     test whether a stock is still active or not
-    #     :return:
-    #     """
-    #     stock_state = self.__get_state(symbol)
-    #     if stock_state is None:
-    #         log("{} Warn: unknown error when testing whether a stock is still active. "
-    #             "We set it active by default".format(symbol))
-    #         return True
-    #
-    #     return stock_state.attempts < self.__MAX_ATTEMPTS_NUM
-
     def _handle_after_update_all(self):
         """
         merge state file to the main stock file
@@ -197,7 +184,7 @@ class StockManagerFile(StockManager):
         """
         self.__merge_temp_state_file()
 
-    def update_attempts(self, symbol: str, attempts: int, update_date: str):
+    def update_attempts(self, symbol: str, attempts: int, update_date: str, date_range: [List, None]):
         state = self.__get_state(symbol)
 
         if state is not None:
@@ -207,7 +194,7 @@ class StockManagerFile(StockManager):
                 state_record = self.__DELIMITER.join([symbol, str(state)])
                 fp.write("{}\n".format(state_record))
 
-    def increase_attempts(self, symbol: str):
+    def increase_attempts(self, symbol: str, date_range: [List, None]):
         state = self.__get_state(symbol)
 
         if state is not None:

@@ -5,8 +5,11 @@ import abc
 
 import urllib.request
 from datetime import datetime
+from typing import List
 
-from stock.review.historyutils import datetime_to_str
+from yahoofinancials import YahooFinancials
+
+from stock.review.historyutils import datetime_to_str, increase_datetime
 from stock.review.stockenum import HistoryDataFailureType
 from stock.review.stockhistory import StockHistory
 from utils.log import log
@@ -31,19 +34,21 @@ class StockManager:
     _EXCHANGE_DISPLAY = "ExchangeDisplay"
     _TYPE = "Type"
     _TYPE_DISPLAY = "TypeDisplay"
+    _HISTORY_START_DATE = "HistoryStartDate"
+    _HISTORY_END_DATE = "HistoryEndDate"
 
     __INVALID_FILE_NAME = {"CON", "PRN", "NULL"}
 
     # if fail more than five times, we may set the stock inactive
-    __MAX_ATTEMPTS_NUM = 5
+    __MAX_ATTEMPTS_NUM = 1
 
     # if fail to get the record for the past 14 days, we may set the stock inactive
     __MAX_INACTIVE_DAYS = 14
 
     __DELIMITER: str = ","
 
-    # After every 20 stocks, we check the server is accessible
-    __SERVER_TEST_FREQ = 20
+    # After every 200 stocks, we check the server is accessible
+    __SERVER_TEST_FREQ = 200
 
     def __init__(self):
         super().__init__()
@@ -81,9 +86,10 @@ class StockManager:
         raise NotImplementedError("Implement it in concrete class")
 
     @abc.abstractmethod
-    def update_attempts(self, symbol: str, attempts: int, update_date: str):
+    def update_attempts(self, symbol: str, attempts: int, update_date: str, date_range: [List, None]):
         """
         update attempts and the update date
+        :param date_range:
         :param symbol:
         :param attempts:
         :param update_date:
@@ -92,7 +98,7 @@ class StockManager:
         raise NotImplementedError("Implement it in concrete class")
 
     @abc.abstractmethod
-    def increase_attempts(self, symbol: str):
+    def increase_attempts(self, symbol: str, date_range: [List, None]):
         """
         Increase the attempts by 1.
         :return:
@@ -145,7 +151,7 @@ class StockManager:
         """
         pass
 
-    def update_all_history(self, update_database: bool = True, update_memory: bool = False,
+    def update_all_history(self, update_database: bool = True, update_memory: bool = True,
                            update_inactive: bool = False, batch_size: int = 100):
         """
         update all history
@@ -157,11 +163,9 @@ class StockManager:
         :return:
         """
         stock_num = self.company_size
+        symbol_batch = []
         for index, symbol in enumerate(self.symbols):
             log("Info: updating the history for {} {}/{}".format(symbol, index+1, stock_num))
-
-            if (index+1) % batch_size == 0:
-                self._handle_after_update_batch()
 
             if not update_inactive and not self.is_active(symbol):
                 continue
@@ -174,13 +178,59 @@ class StockManager:
 
             # test whether server is accessible. if not, quit
             test_accessible = (index % self.__SERVER_TEST_FREQ == 0)
-            failure_type = self.__update_individual(symbol, update_database, update_memory, test_accessible)
-            if failure_type == HistoryDataFailureType.SUCCESS:
-                self.update_attempts(symbol, 0, datetime_to_str(datetime.now()))
-            else:
-                self.increase_attempts(symbol)
+            if test_accessible and not self.is_server_accessible():
+                log("Warn: Server is not accessible. Stop updating")
+                continue
+
+            symbol_batch.append(symbol)
+            if len(symbol_batch) >= batch_size:
+                self.__update_batch_history(symbol_batch, update_database, update_memory)
+                self._handle_after_update_batch()
+                symbol_batch.clear()
+
+        if symbol_batch:
+            self.__update_batch_history(symbol_batch, update_database, update_memory)
+            self._handle_after_update_batch()
 
         self._handle_after_update_all()
+
+    def __update_batch_history(self, symbol_batch: List[str], update_database: bool = True,
+                               update_memory: bool = False):
+        """
+        update the history for a batch of symbols
+        :param symbol_batch:
+        :return:
+        """
+        history_map = dict()
+        end_date = datetime_to_str(datetime.now())
+        start_date = end_date
+        for symbol in symbol_batch:
+            history = StockHistory(symbol)
+            history_map[symbol] = history
+            date_range = history.date_range
+            if date_range is None:
+                new_start_date = StockHistory.EARLIEST_HISTORY_DATE
+            else:
+                new_start_date = increase_datetime(date_range[1], 1)
+
+            if new_start_date < start_date:
+                start_date = new_start_date
+
+        if start_date >= end_date:
+            log("cannot update because it is too short from last update")
+            return
+
+        financial = YahooFinancials(symbol_batch)
+        history_data = financial.get_historical_price_data(start_date, end_date, "daily")
+
+        for symbol in symbol_batch:
+            history = history_map[symbol]
+            failure_type = history.update_history_from_server_data(history_data, start_date, end_date, update_database,
+                                                                   update_memory)
+            if failure_type == HistoryDataFailureType.SUCCESS:
+                self.update_attempts(symbol, 0, datetime_to_str(datetime.now()), history.date_range)
+            else:
+                self.increase_attempts(symbol, history.date_range)
 
     def __update_individual(self, symbol: str, update_database: bool = True, update_memory: bool = False,
                             test_access: bool = False) -> HistoryDataFailureType:
@@ -198,4 +248,4 @@ class StockManager:
             return HistoryDataFailureType.INTERNET_NOT_ACCESSIBLE
 
         history = StockHistory(symbol)
-        return history.update(update_database, update_memory)
+        return history.update(update_database, update_memory), history
