@@ -24,18 +24,28 @@ class GeneratorMethod:
         raise Exception("Implement it in concrete class")
 
     @abc.abstractmethod
-    def next_sample(self, dataset: np.array) -> np.array:
+    def get_sample(self, dataset: np.array, index: int) -> np.array:
         """
-        It is a generator. Generate next sample
+        given a dataset, and index, return a sample
         :param dataset:
+        :param index:
         :return:
         """
-        pass
+        raise Exception("Implement it in concrete class")
 
-    def _generate_random_order(self, dataset: np.array) -> List:
-        """
-        Generate the randomize order for sampling
-        :return:
-        """
-        sample_num = self.sample_number(dataset)
-        return randrange(sample_num) if sample_num > 0 else []
+    # @abc.abstractmethod
+    # def next_sample(self, dataset: np.array) -> np.array:
+    #     """
+    #     It is a generator. Generate next sample
+    #     :param dataset:
+    #     :return:
+    #     """
+    #     pass
+
+    # def _generate_random_order(self, dataset: np.array) -> List:
+    #     """
+    #     Generate the randomize order for sampling
+    #     :return:
+    #     """
+    #     sample_num = self.sample_number(dataset)
+    #     return randrange(sample_num) if sample_num > 0 else []

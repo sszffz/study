@@ -18,6 +18,10 @@ class SampleGenerator:
                  batch_size: int,
                  split_ratio: Tuple = (6, 3, 1)):
         """
+        symbol_dataset_dict is a dictionary. Key is symbol, the value is dataset
+        sample_dict is a dictionary. Key is SampleType, value is a tuple (symbol, index)
+        dataset is
+
         :param stock_manager:
         :param generator_method:
         :param batch_size:
@@ -25,12 +29,12 @@ class SampleGenerator:
             training, validation and test ratio
         """
         super(SampleGenerator, self).__init__()
-        self.stock_manager = stock_manager
-        self.generator_method = generator_method
-        self.batch_size = batch_size
-        self.split_ratio = split_ratio
-        self.symbol_dataset_dict = self.__get_symbol_dataset_dict()
-        self.sample_dict = self.__split_samples()
+        self.stock_manager: StockManager = stock_manager
+        self.generator_method: GeneratorMethod = generator_method
+        self.batch_size: int = batch_size
+        self.split_ratio: Tuple = split_ratio
+        self.symbol_dataset_dict: Dict = self.__get_symbol_dataset_dict()
+        self.sample_dict: Dict = self.__split_samples()
 
     @abc.abstractmethod
     def get_dataset(self, symbol: str):
@@ -94,39 +98,35 @@ class SampleGenerator:
         """
         return self.stock_manager.symbols
 
-    # def __total_sample_number(self):
-    #     """
-    #     calculate how many sample can be generated from database
-    #     :return:
-    #     """
-    #     count = 0
-    #     for symbol in self.__get_symbol_set_for_sample():
-    #         count += self.generator_method.sample_number(self.get_dataset(symbol))
-    #     return count
-
-    def batch_number(self):
+    def batch_number(self, sample_type: SampleType):
         """
         Calculate how many batch can be generated from database
         :return:
         """
-        return self.__total_sample_number() // self.batch_size
+        return self.sample_dict[sample_type][1] // self.batch_size
 
-    def next_sample(self):
+    def sample_generator(self, sample_type: SampleType):
         """
-        generate next sample
+        sample generator. It generates one sample
         :return:
         """
-        symbol_set = self.__get_symbol_set_for_sample()
-        symbol_dataset_map = dict()
-        # for
+        sample_list = self.sample_dict[sample_type]
+        for sample in sample_list:
+            symbol, index = sample
+            dataset = self.symbol_dataset_dict[symbol]
+            yield self.generator_method.get_sample(dataset, index)
 
-
-    def next_batch(self):
+    def batch_generator(self, sample_type: SampleType):
         """
-        generate next batch
+        batch generator. It generates a batch of sample (several of samples)
         :return:
         """
-        pass
+        sample_generator = self.sample_generator(sample_type)
+        while True:
+            batch = []
+            for _ in range(self.batch_size):
+                batch.append(next(sample_generator))
+            yield batch
 
 def test_g():
     a = [1, 2, 3]

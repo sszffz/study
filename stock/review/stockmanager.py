@@ -4,6 +4,7 @@ manage all stocks
 import abc
 
 import urllib.request
+from concurrent import futures
 from datetime import datetime
 from typing import List
 
@@ -13,6 +14,7 @@ from stock.review.historyutils import datetime_to_str, increase_datetime
 from stock.review.stockenum import HistoryDataFailureType
 from stock.review.stockhistory import StockHistory
 from utils.log import log
+from utils.misc.miscutils import split_list
 
 
 class StockManager:
@@ -155,15 +157,18 @@ class StockManager:
                            update_inactive: bool = False, batch_size: int = 100):
         """
         update all history
-        :param batch_size:
         :param update_database:
         :param update_memory:
         :param update_inactive:
-            whether update inactive stocks
+        :param batch_size:
         :return:
         """
+        if not self.is_server_accessible():
+            print("server is not accessible")
+            return
+
         stock_num = self.company_size
-        symbol_batch = []
+        symbol_list = []
         for index, symbol in enumerate(self.symbols):
             log("Info: updating the history for {} {}/{}".format(symbol, index+1, stock_num))
 
@@ -176,26 +181,87 @@ class StockManager:
             if not update_inactive and not self.is_active(symbol):
                 continue
 
-            # test whether server is accessible. if not, quit
-            test_accessible = (index % self.__SERVER_TEST_FREQ == 0)
-            if test_accessible and not self.is_server_accessible():
-                log("Warn: Server is not accessible. Stop updating")
-                continue
+            symbol_list.append(symbol)
 
-            symbol_batch.append(symbol)
-            if len(symbol_batch) >= batch_size:
-                self.__update_batch_history(symbol_batch, update_database, update_memory)
-                self._handle_after_update_batch()
-                symbol_batch.clear()
+        with futures.ThreadPoolExecutor(max_workers=20) as executor:
+            to_do = []
+            for batch in split_list(symbol_list, batch_size):
+                to_do.append(executor.submit(self.acquire_history_from_server, batch))
 
-        if symbol_batch:
-            self.__update_batch_history(symbol_batch, update_database, update_memory)
-            self._handle_after_update_batch()
+            completed_counter = 0
+            for future in futures.as_completed(to_do):
+                result = future.result()
+                if result is not None:
+                    symbol_batch, history_data, history_map, start_date, end_date = result
+                    self._update_database_for_batch(symbol_batch, history_data, history_map, start_date, end_date,
+                                                    update_database, update_memory)
+                    self._handle_after_update_batch()
+                    completed_counter += len(symbol_batch)
+                    print("complete: ", completed_counter)
 
         self._handle_after_update_all()
 
-    def __update_batch_history(self, symbol_batch: List[str], update_database: bool = True,
-                               update_memory: bool = False):
+    def _update_database_for_batch(self, symbol_batch, history_data, history_map, start_date, end_date,
+                                   update_database, update_memory):
+        """
+        update database for a batch from history data acquired from server.
+        It will update mySQL server and stock history data file (cvs files)
+        :return:
+        """
+        for symbol in symbol_batch:
+            history = history_map[symbol]
+            failure_type = history.update_history_from_server_data(history_data, start_date, end_date,
+                                                                   update_database, update_memory)
+            if failure_type == HistoryDataFailureType.SUCCESS:
+                self.update_attempts(symbol, 0, datetime_to_str(datetime.now()), history.date_range)
+            else:
+                self.increase_attempts(symbol, history.date_range)
+
+    # def update_all_history(self, update_database: bool = True, update_memory: bool = True,
+    #                        update_inactive: bool = False, batch_size: int = 100):
+    #     """
+    #     update all history
+    #     :param batch_size:
+    #     :param update_database:
+    #     :param update_memory:
+    #     :param update_inactive:
+    #         whether update inactive stocks
+    #     :return:
+    #     """
+    #     stock_num = self.company_size
+    #     symbol_batch = []
+    #     for index, symbol in enumerate(self.symbols):
+    #         log("Info: updating the history for {} {}/{}".format(symbol, index+1, stock_num))
+    #
+    #         if not update_inactive and not self.is_active(symbol):
+    #             continue
+    #
+    #         if not self._is_valid_symbol(symbol):
+    #             continue
+    #
+    #         if not update_inactive and not self.is_active(symbol):
+    #             continue
+    #
+    #         # test whether server is accessible. if not, quit
+    #         test_accessible = (index % self.__SERVER_TEST_FREQ == 0)
+    #         if test_accessible and not self.is_server_accessible():
+    #             log("Warn: Server is not accessible. Stop updating")
+    #             continue
+    #
+    #         symbol_batch.append(symbol)
+    #         if len(symbol_batch) >= batch_size:
+    #             self._update_batch_history(symbol_batch, update_database, update_memory)
+    #             self._handle_after_update_batch()
+    #             symbol_batch.clear()
+    #
+    #     if symbol_batch:
+    #         self._update_batch_history(symbol_batch, update_database, update_memory)
+    #         self._handle_after_update_batch()
+    #
+    #     self._handle_after_update_all()
+    #
+
+    def acquire_history_from_server(self, symbol_batch: List[str]):
         """
         update the history for a batch of symbols
         :param symbol_batch:
@@ -223,29 +289,4 @@ class StockManager:
         financial = YahooFinancials(symbol_batch)
         history_data = financial.get_historical_price_data(start_date, end_date, "daily")
 
-        for symbol in symbol_batch:
-            history = history_map[symbol]
-            failure_type = history.update_history_from_server_data(history_data, start_date, end_date, update_database,
-                                                                   update_memory)
-            if failure_type == HistoryDataFailureType.SUCCESS:
-                self.update_attempts(symbol, 0, datetime_to_str(datetime.now()), history.date_range)
-            else:
-                self.increase_attempts(symbol, history.date_range)
-
-    def __update_individual(self, symbol: str, update_database: bool = True, update_memory: bool = False,
-                            test_access: bool = False) -> HistoryDataFailureType:
-        """
-        update the history for
-        :param update_memory:
-        :param update_database:
-        :param test_access:
-        :param symbol:
-        :return:
-        """
-        # test whether server is accessible. if not, quit
-        if test_access and not self.is_server_accessible():
-            log("Warn: Server is not accessible. Stop updating")
-            return HistoryDataFailureType.INTERNET_NOT_ACCESSIBLE
-
-        history = StockHistory(symbol)
-        return history.update(update_database, update_memory), history
+        return symbol_batch, history_data, history_map, start_date, end_date
