@@ -99,25 +99,27 @@ class StockManagerMySql(StockManager):
                         {} INT,\
                         {} DATE,\
                         {} DATE,\
-                        {} DATE\
+                        {} DATE,\
+                        {} INT,\
                         )".format(self.__TABLE_NAME__,
-                                  self._SYMBOL,
-                                  self._NAME,
-                                  self._LAST_SALE,
-                                  self._MARKET_CAP,
-                                  self._ADR_TSO,
-                                  self._IPO_YEAR,
-                                  self._SECTOR,
-                                  self._INDUSTRY,
-                                  self._SUMMARY_QUOTA,
-                                  self._EXCHANGE,
-                                  self._EXCHANGE_DISPLAY,
-                                  self._TYPE,
-                                  self._TYPE_DISPLAY,
+                                  self.SYMBOL,
+                                  self.NAME,
+                                  self.LAST_SALE,
+                                  self.MARKET_CAP,
+                                  self.ADR_TSO,
+                                  self.IPO_YEAR,
+                                  self.SECTOR,
+                                  self.INDUSTRY,
+                                  self.SUMMARY_QUOTA,
+                                  self.EXCHANGE,
+                                  self.EXCHANGE_DISPLAY,
+                                  self.TYPE,
+                                  self.TYPE_DISPLAY,
                                   self.__ATTEMPTS,
                                   self.__LAST_UPDATE_DATE,
-                                  self._HISTORY_START_DATE,
-                                  self._HISTORY_END_DATE))
+                                  self.HISTORY_START_DATE,
+                                  self.HISTORY_END_DATE,
+                                  self.RECORD_NUMBER))
         cursor.close()
         # self.update_table_from_xml(db_conn)
 
@@ -138,12 +140,12 @@ class StockManagerMySql(StockManager):
         company_list = pd.read_csv(symbol_list_file_path)
         company_num = company_list.shape[0]
 
-        cursor = self.__db_conn__.cursor()
+        cursor = self.create_cursor()
 
-        if self._SYMBOL in company_list:
-            symbol_key = self._SYMBOL
-        elif self._TICKER in company_list:
-            symbol_key = self._TICKER
+        if self.SYMBOL in company_list:
+            symbol_key = self.SYMBOL
+        elif self.TICKER in company_list:
+            symbol_key = self.TICKER
         else:
             log("no symbol entry in the xml file: " + symbol_list_file_path)
             return
@@ -152,78 +154,98 @@ class StockManagerMySql(StockManager):
             row = company_list.iloc[i]
 
             symbol = row[symbol_key]
-            if "'" in symbol:
+            if "'" in symbol or symbol in self.INVALID_FILE_NAME:
                 continue
 
-            if self._EXCHANGE_DISPLAY in row:
-                exchange_display = row[self._EXCHANGE_DISPLAY]
+            if self.EXCHANGE_DISPLAY in row:
+                exchange_display = row[self.EXCHANGE_DISPLAY]
                 if exchange_display not in included_exchange_display:
                     print("the exchange display for {} is {}. It does not belong to {}. skip it".
                           format(symbol, exchange_display, included_exchange_display))
                     continue
 
-            if self._STATE in row:
-                state = StockState(row[self._STATE])
+            if self.STATE in row:
+                state = StockState(row[self.STATE])
                 attempts = state.attempts
                 last_update_date = state.update_date
             else:
                 attempts = None
                 last_update_date = None
 
-            name = row[self._NAME] if self._NAME in row else None
-            last_scale = row[self._LAST_SALE] if self._LAST_SALE in row else None
-            market_cap = row[self._MARKET_CAP] if self._MARKET_CAP in row else None
-            adr_tso = row[self._ADR_TSO] if self._ADR_TSO in row else None
-            ipo_year = row[self._IPO_YEAR] if self._IPO_YEAR in row else None
-            sector = row[self._SECTOR] if self._SECTOR in row else None
-            industry = row[self._INDUSTRY] if self._INDUSTRY in row else None
-            summary_quota = row[self._SUMMARY_QUOTA] if self._SUMMARY_QUOTA in row else None
-            exchange = row[self._EXCHANGE] if self._EXCHANGE in row else None
-            exchange_display = row[self._EXCHANGE_DISPLAY] if self._EXCHANGE_DISPLAY in row else None
-            stock_type = row[self._TYPE] if self._TYPE in row else None
-            type_display = row[self._TYPE_DISPLAY] if self._TYPE_DISPLAY in row else None
+            name = row[self.NAME] if self.NAME in row else None
+            last_scale = row[self.LAST_SALE] if self.LAST_SALE in row else None
+            market_cap = row[self.MARKET_CAP] if self.MARKET_CAP in row else None
+            adr_tso = row[self.ADR_TSO] if self.ADR_TSO in row else None
+            ipo_year = row[self.IPO_YEAR] if self.IPO_YEAR in row else None
+            sector = row[self.SECTOR] if self.SECTOR in row else None
+            industry = row[self.INDUSTRY] if self.INDUSTRY in row else None
+            summary_quota = row[self.SUMMARY_QUOTA] if self.SUMMARY_QUOTA in row else None
+            exchange = row[self.EXCHANGE] if self.EXCHANGE in row else None
+            exchange_display = row[self.EXCHANGE_DISPLAY] if self.EXCHANGE_DISPLAY in row else None
+            stock_type = row[self.TYPE] if self.TYPE in row else None
+            type_display = row[self.TYPE_DISPLAY] if self.TYPE_DISPLAY in row else None
 
-            self.__update_one_symbol(cursor,
-                                     symbol,
-                                     name,
-                                     last_scale,
-                                     market_cap,
-                                     adr_tso,
-                                     ipo_year,
-                                     sector,
-                                     industry,
-                                     summary_quota,
-                                     exchange,
-                                     exchange_display,
-                                     stock_type,
-                                     type_display,
-                                     attempts,
-                                     last_update_date)
+            self.update_one_symbol(cursor,
+                                   symbol,
+                                   name,
+                                   last_scale,
+                                   market_cap,
+                                   adr_tso,
+                                   ipo_year,
+                                   sector,
+                                   industry,
+                                   summary_quota,
+                                   exchange,
+                                   exchange_display,
+                                   stock_type,
+                                   type_display,
+                                   attempts,
+                                   last_update_date)
 
         cursor.close()
-        self.__db_conn__.commit()
+        self.commit()
 
-    def __update_one_symbol(self,
-                            cursor: MySQLCursorAbstract,
-                            symbol: str,
-                            name: str = None,
-                            last_sale: float = None,
-                            market_cap: float = None,
-                            adr_tso: str = None,
-                            ipo_year: int = None,
-                            sector: str = None,
-                            industry: str = None,
-                            summary_quota: str = None,
-                            exchange: str = None,
-                            exchange_display: str = None,
-                            stock_type: str = None,
-                            type_display: str = None,
-                            attempts: int = None,
-                            last_update_date: str = None,
-                            history_start_date: str = None,
-                            history_end_date: str = None):
+    def delete_symbol(self, symbol: str):
+        """
+        delete my symbol from server
+        :param symbol:
+        :return:
+        """
+        cursor = self.create_cursor()
+        sql = "DELETE FROM {} WHERE Symbol='{}'".format(self.__TABLE_NAME__, symbol)
+        cursor.execute(sql)
+        self.commit()
+        cursor.close()
+
+    def update_one_symbol(self,
+                          cursor: MySQLCursorAbstract,
+                          symbol: str,
+                          name: str = None,
+                          last_sale: float = None,
+                          market_cap: float = None,
+                          adr_tso: str = None,
+                          ipo_year: int = None,
+                          sector: str = None,
+                          industry: str = None,
+                          summary_quota: str = None,
+                          exchange: str = None,
+                          exchange_display: str = None,
+                          stock_type: str = None,
+                          type_display: str = None,
+                          attempts: int = None,
+                          last_update_date: str = None,
+                          history_start_date: str = None,
+                          history_end_date: str = None,
+                          record_number: int = None):
         """
         Add entry for one company
+        :param record_number:
+        :param history_end_date:
+        :param history_start_date:
+        :param type_display:
+        :param stock_type:
+        :param exchange_display:
+        :param exchange:
         :param cursor:
         :param symbol:
         :param name:
@@ -248,40 +270,40 @@ class StockManagerMySql(StockManager):
         # update the symbol other fields
         key_value_list = []
         if name:
-            key_value_list.append("{}={}".format(self._NAME, self.__format_entry(name, True)))
+            key_value_list.append("{}={}".format(self.NAME, self.__format_entry(name, True)))
 
         if last_sale:
-            key_value_list.append("{}={}".format(self._LAST_SALE, self.__format_entry(last_sale, False)))
+            key_value_list.append("{}={}".format(self.LAST_SALE, self.__format_entry(last_sale, False)))
 
         if market_cap:
-            key_value_list.append("{}={}".format(self._MARKET_CAP, self.__format_entry(market_cap, False)))
+            key_value_list.append("{}={}".format(self.MARKET_CAP, self.__format_entry(market_cap, False)))
 
         if adr_tso:
-            key_value_list.append("{}={}".format(self._ADR_TSO, self.__format_entry(adr_tso, True)))
+            key_value_list.append("{}={}".format(self.ADR_TSO, self.__format_entry(adr_tso, True)))
 
         if ipo_year:
-            key_value_list.append("{}={}".format(self._IPO_YEAR, self.__format_entry(ipo_year, False)))
+            key_value_list.append("{}={}".format(self.IPO_YEAR, self.__format_entry(ipo_year, False)))
 
         if sector:
-            key_value_list.append("{}={}".format(self._SECTOR, self.__format_entry(sector, True)))
+            key_value_list.append("{}={}".format(self.SECTOR, self.__format_entry(sector, True)))
 
         if industry:
-            key_value_list.append("{}={}".format(self._INDUSTRY, self.__format_entry(industry, True)))
+            key_value_list.append("{}={}".format(self.INDUSTRY, self.__format_entry(industry, True)))
 
         if summary_quota:
-            key_value_list.append("{}={}".format(self._SUMMARY_QUOTA, self.__format_entry(summary_quota, True)))
+            key_value_list.append("{}={}".format(self.SUMMARY_QUOTA, self.__format_entry(summary_quota, True)))
 
         if exchange:
-            key_value_list.append("{}={}".format(self._EXCHANGE, self.__format_entry(exchange, True)))
+            key_value_list.append("{}={}".format(self.EXCHANGE, self.__format_entry(exchange, True)))
 
         if exchange_display:
-            key_value_list.append("{}={}".format(self._EXCHANGE_DISPLAY, self.__format_entry(exchange_display, True)))
+            key_value_list.append("{}={}".format(self.EXCHANGE_DISPLAY, self.__format_entry(exchange_display, True)))
 
         if stock_type:
-            key_value_list.append("{}={}".format(self._TYPE, self.__format_entry(stock_type, True)))
+            key_value_list.append("{}={}".format(self.TYPE, self.__format_entry(stock_type, True)))
 
         if type_display:
-            key_value_list.append("{}={}".format(self._TYPE_DISPLAY, self.__format_entry(type_display, True)))
+            key_value_list.append("{}={}".format(self.TYPE_DISPLAY, self.__format_entry(type_display, True)))
 
         if attempts:
             key_value_list.append("{}={}".format(self.__ATTEMPTS, self.__format_entry(attempts, False)))
@@ -290,17 +312,20 @@ class StockManagerMySql(StockManager):
             key_value_list.append("{}={}".format(self.__LAST_UPDATE_DATE, self.__format_entry(last_update_date, True)))
 
         if history_start_date:
-            key_value_list.append("{}={}".format(self._HISTORY_START_DATE, self.__format_entry(history_start_date, True)))
+            key_value_list.append("{}={}".format(self.HISTORY_START_DATE,
+                                                 self.__format_entry(history_start_date, True)))
 
         if history_end_date:
-            key_value_list.append("{}={}".format(self._HISTORY_END_DATE, self.__format_entry(history_end_date, True)))
+            key_value_list.append("{}={}".format(self.HISTORY_END_DATE, self.__format_entry(history_end_date, True)))
+
+        if record_number:
+            key_value_list.append("{}={}".format(self.RECORD_NUMBER, self.__format_entry(record_number, False)))
 
         if not key_value_list:
             return
 
         try:
             sql = "UPDATE {} SET {} WHERE Symbol='{}'".format(self.__TABLE_NAME__, ", ".join(key_value_list), symbol)
-            print(sql)
             cursor.execute(sql)
         except Exception as e:
             print(e)
@@ -330,7 +355,7 @@ class StockManagerMySql(StockManager):
         """
         sql = "INSERT INTO {} ({}) VALUES ({})".format(
                 self.__TABLE_NAME__,
-                self._SYMBOL,
+                self.SYMBOL,
                 self.__format_entry(symbol, True))
         print(sql)
         cursor.execute(sql)
@@ -384,7 +409,7 @@ class StockManagerMySql(StockManager):
         Get the set of all element in a column
         :return:
         """
-        cursor = self.__db_conn__.cursor()
+        cursor = self.create_cursor()
         cursor.execute("SELECT {} from {}".format(column_name, self.__TABLE_NAME__))
         result = cursor.fetchall()
         sector_set = set()
@@ -393,13 +418,28 @@ class StockManagerMySql(StockManager):
         cursor.close()
         return sector_set
 
+    def get_symbols_record_numbers(self):
+        return self.select_columns([self.SYMBOL, self.RECORD_NUMBER])
+
+    def select_columns(self, column_list: List):
+        """
+        Select a list of column
+        :param column_list:
+        :return:
+        """
+        cursor = self.create_cursor()
+        cursor.execute("SELECT {} from {}".format(",".join(column_list), self.__TABLE_NAME__))
+        result = cursor.fetchall()
+        cursor.close()
+        return result
+
     @property
     def sectors(self) -> set:
         """
         Get the set of all sectors
         :return:
         """
-        return self.__get_set_for_column(self._SECTOR)
+        return self.__get_set_for_column(self.SECTOR)
 
     @property
     def industries(self) -> set:
@@ -407,7 +447,7 @@ class StockManagerMySql(StockManager):
         get the set of all industrial
         :return:
         """
-        return self.__get_set_for_column(self._INDUSTRY)
+        return self.__get_set_for_column(self.INDUSTRY)
 
     @property
     def symbols(self) -> set:
@@ -415,7 +455,7 @@ class StockManagerMySql(StockManager):
         get the set of all symbols
         :return:
         """
-        return self.__get_set_for_column(self._SYMBOL)
+        return self.__get_set_for_column(self.SYMBOL)
 
     def __get_value(self, symbol: str, column: str):
         """
@@ -427,7 +467,7 @@ class StockManagerMySql(StockManager):
         if not self.__db_conn__:
             return None
 
-        cursor = self.__db_conn__.cursor()
+        cursor = self.create_cursor()
         sql = "SELECT {} FROM STOCK WHERE SYMBOL='{}'".format(column, symbol)
         cursor.execute(sql)
         result = cursor.fetchall()
@@ -447,41 +487,36 @@ class StockManagerMySql(StockManager):
         symbols = self.symbols
         return len(symbols) if symbols else 0
 
-    def update_attempts(self, symbol: str, attempts: int, update_date: str = None, date_range: [List, None] = None):
-        cursor = self.__db_conn__.cursor()
+    def update_attempts(self, symbol: str, attempts: int, update_date: str = None, date_range: [List, None] = None,
+                        record_num: int = None):
+        cursor = self.create_cursor()
         start_date = None
         end_date = None
         if date_range is not None:
             start_date = date_range[0]
             end_date = date_range[1]
-        self.__update_one_symbol(cursor, symbol, attempts=attempts, last_update_date=update_date,
-                                 history_start_date=start_date, history_end_date=end_date)
+        self.update_one_symbol(cursor, symbol, attempts=attempts, last_update_date=update_date,
+                               history_start_date=start_date, history_end_date=end_date,
+                               record_number=record_num)
         cursor.close()
 
-    def increase_attempts(self, symbol: str, date_range: [List, None]):
+    def increase_attempts(self, symbol: str, date_range: [List, None], record_num: int):
         attempts = self._get_attempts(symbol)
         if attempts is None:
             attempts = 1
         else:
             attempts += 1
-        self.update_attempts(symbol, attempts, date_range)
-
-    def __commit(self):
-        """
-        update database by commit
-        :return:
-        """
-        self.__db_conn__.commit()
+        self.update_attempts(symbol, attempts, date_range, record_num)
 
     def _handle_after_update_all(self):
-        self.__commit()
+        self.commit()
 
     def _handle_after_update_batch(self):
         """
         handle after a batch of symbols were updated
         :return:
         """
-        self.__commit()
+        self.commit()
 
     def add_column(self, column_name: str, column_data_type: str):
         """
@@ -506,7 +541,7 @@ class StockManagerMySql(StockManager):
         history files
         :return:
         """
-        cursor = self.__db_conn__.cursor()
+        cursor = self.create_cursor()
         for index, symbol in enumerate(self.symbols):
             if not self._is_valid_symbol(symbol):
                 continue
@@ -514,12 +549,29 @@ class StockManagerMySql(StockManager):
             history = StockHistory(symbol)
             start_date = "NULL"
             end_date = "NULL"
+            record_num = 0
             if not history.is_history_empty():
                 start_date, end_date = history.date_range
+                record_num = history.size
 
-            self.__update_one_symbol(cursor, symbol, history_start_date=start_date, history_end_date=end_date)
+            self.update_one_symbol(cursor, symbol, history_start_date=start_date, history_end_date=end_date,
+                                   record_number=record_num)
             if (index + 1) % 100 == 0:
-                self.__db_conn__.commit()
+                self.commit()
 
         cursor.close()
+        self.commit()
+
+    def create_cursor(self):
+        """
+        create a cursor
+        :return:
+        """
+        return self.__db_conn__.cursor()
+
+    def commit(self):
+        """
+        update database
+        :return:
+        """
         self.__db_conn__.commit()

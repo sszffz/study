@@ -1,21 +1,20 @@
 """
-define how to generate one sample from given array
+define how to generate one sample from given array or dataset. dataset is
+obtained from "DatasetCreator"
 """
 import abc
-from random import randrange
-from typing import List
 
 import numpy as np
 
 
-class GeneratorMethod:
+class Picker:
 
     def __init__(self, sample_length: int):
-        super(GeneratorMethod, self).__init__()
+        super(Picker, self).__init__()
         self.sample_length = sample_length
 
     @abc.abstractmethod
-    def sample_number(self, dataset: np.array) -> int:
+    def sample_number(self, recoder_number: int) -> int:
         """
         Given a array (can be any dimension), estimate how many sample can be
         obtained from it.

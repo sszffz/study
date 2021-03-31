@@ -2,16 +2,12 @@
 manage all stocks
 """
 import os
-from datetime import datetime
 from shutil import copyfile
 from typing import Dict, List
 
 import pandas as pd
 
 from security.config import config
-from stock.review.historyutils import datetime_to_str
-from stock.review.stockenum import HistoryDataFailureType
-from stock.review.stockhistory import StockHistory
 from stock.review.stockmanager import StockManager
 from stock.review.stockstate import StockState
 from utils.log import log
@@ -36,16 +32,16 @@ class StockManagerFile(StockManager):
         if not os.path.isfile(self.__company_list_file_path):
             print("company list file does not exist. create an empty one")
             with open(self.__company_list_file_path, "w") as fp:
-                fp.write("{},{},{},{},{},{},{},{},{},{}\n".format(self._SYMBOL,
-                                                                  self._NAME,
-                                                                  self._LAST_SALE,
-                                                                  self._MARKET_CAP,
-                                                                  self._ADR_TSO,
-                                                                  self._IPO_YEAR,
-                                                                  self._SECTOR,
-                                                                  self._INDUSTRY,
-                                                                  self._SUMMARY_QUOTA,
-                                                                  self._STATE))
+                fp.write("{},{},{},{},{},{},{},{},{},{}\n".format(self.SYMBOL,
+                                                                  self.NAME,
+                                                                  self.LAST_SALE,
+                                                                  self.MARKET_CAP,
+                                                                  self.ADR_TSO,
+                                                                  self.IPO_YEAR,
+                                                                  self.SECTOR,
+                                                                  self.INDUSTRY,
+                                                                  self.SUMMARY_QUOTA,
+                                                                  self.STATE))
 
         # if there is temp state file exist, merge the state first.
         self.__merge_temp_state_file()
@@ -57,7 +53,7 @@ class StockManagerFile(StockManager):
         :return:
         """
         self.__index_dict = dict()
-        states = self.__company_list[self._STATE]
+        states = self.__company_list[self.STATE]
         for index, symbol in enumerate(self.symbols):
             self.__index_dict[symbol] = (index, StockState(states[index]))
 
@@ -75,7 +71,7 @@ class StockManagerFile(StockManager):
         Get all sectors in the database
         :return:
         """
-        return set(self.__company_list[self._SECTOR])
+        return set(self.__company_list[self.SECTOR])
 
     @property
     def industries(self):
@@ -83,7 +79,7 @@ class StockManagerFile(StockManager):
         Get all industries in the database
         :return:
         """
-        return set(self.__company_list[self._INDUSTRY])
+        return set(self.__company_list[self.INDUSTRY])
 
     @property
     def symbols(self):
@@ -91,7 +87,7 @@ class StockManagerFile(StockManager):
         get all symbols
         :return:
         """
-        return list(self.__company_list[self._SYMBOL])
+        return list(self.__company_list[self.SYMBOL])
 
     def __merge_temp_state_file(self):
         """
@@ -184,7 +180,7 @@ class StockManagerFile(StockManager):
         """
         self.__merge_temp_state_file()
 
-    def update_attempts(self, symbol: str, attempts: int, update_date: str, date_range: [List, None]):
+    def update_attempts(self, symbol: str, attempts: int, update_date: str, date_range: [List, None], record_num: int):
         state = self.__get_state(symbol)
 
         if state is not None:
@@ -194,7 +190,7 @@ class StockManagerFile(StockManager):
                 state_record = self.__DELIMITER.join([symbol, str(state)])
                 fp.write("{}\n".format(state_record))
 
-    def increase_attempts(self, symbol: str, date_range: [List, None]):
+    def increase_attempts(self, symbol: str, date_range: [List, None], record_num: int):
         state = self.__get_state(symbol)
 
         if state is not None:
@@ -203,43 +199,5 @@ class StockManagerFile(StockManager):
                 state_record = self.__DELIMITER.join([symbol, str(state)])
                 fp.write("{}\n".format(state_record))
 
-    # def update_all_history(self, update_database: bool = True, update_memory: bool = False,
-    #                        update_inactive: bool = False):
-    #     """
-    #     update all history
-    #     :param update_database:
-    #     :param update_memory:
-    #     :param update_inactive:
-    #         whether update inactive stocks
-    #     :return:
-    #     """
-    #     stock_num = self.company_size
-    #     for index, symbol in enumerate(self.symbols):
-    #         log("Info: updating the history for {} {}/{}".format(symbol, index+1, stock_num))
-    #
-    #         if symbol in self.__INVALID_FILE_NAME:
-    #             log("INFO: {} is invalid as a file name for saving".format(symbol))
-    #             continue
-    #
-    #         state = self.__get_state(symbol)
-    #         if not update_inactive and not self.is_active(symbol):
-    #             continue
-    #
-    #         # test whether server is accessible. if not, quit
-    #         test_accessible = (index % self.__SERVER_TEST_FREQ == 0)
-    #         self.update_one_symbol(symbol, update_database, update_memory, test_accessible)
-    #
-    #         history = StockHistory(symbol)
-    #         failure_type = history.update(update_database, update_memory)
-    #         if state is not None:
-    #             with open(config.path.company_temp_state_file_path, "a+") as fp:
-    #                 if failure_type == HistoryDataFailureType.SUCCESS:
-    #                     state.update_date = datetime_to_str(datetime.now())
-    #                     state.attempts = 0
-    #                 else:
-    #                     state.increase_attempts()
-    #
-    #                 state_record = self.__DELIMITER.join([symbol, str(state)])
-    #                 fp.write("{}\n".format(state_record))
-    #
-    #     self.__merge_temp_state_file()
+    def get_symbols_record_numbers(self):
+        raise NotImplementedError("it is not implemented yet")

@@ -32,6 +32,13 @@ class PriceType(Enum):
     def __str__(self):
         return self.value[1]
 
+    @staticmethod
+    def from_str(type_str: str):
+        for s in PriceType:
+            if str(s) == type_str:
+                return s
+        return None
+
 
 class HistoryDataFailureType(Enum):
     """
@@ -53,3 +60,12 @@ class HistoryDataFailureType(Enum):
         return self.value[1]
 
 
+class StockType(Enum):
+    """
+    Stock type: Stock, Index, ETF
+    """
+    UNKNOWN = (0, "U", "Unknown")
+    STOCK = (1, "S", "Stock")
+    FUND = (2, "M", "Fund")
+    ETF = (3, "E", "ETF")
+    INDEX = (4, "I", "Index")
