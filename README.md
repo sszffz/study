@@ -1,1 +1,1 @@
-# study
+# Python study project
