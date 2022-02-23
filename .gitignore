@@ -2,3 +2,5 @@
 **/security
 *test.py
 *Test.py
+*.pyc
+**/models/
