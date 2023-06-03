@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "nginx-prob-test"
+  namespace: default
+  labels:
+    app: "nginx-prob-test"
+spec:
+  containers:
+  - name: nginx
+    image: "nginx"
+    startupProbe:
+      exec: ["bin/sh","-c","sleep 30;"]
+      initialDelaySeconds: 20
+      periodSeconds: 5
+      timeoutSeconds: 5
+      successThreshold: 5
+      failureThreshold: 5
+  restartPolicy: IfNotPresent

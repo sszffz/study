@@ -1,0 +1,10 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: my-tomcat-test
+spec:
+  containers:
+  - image: tomcat
+    name: my-tomcat
+
+    

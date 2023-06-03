@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "my-container-test02"
+  namespace: hello
+  labels:
+    aa: bb
+    bb: dd
+spec:
+  imagePullSecrets:
+  - name: my-docker-hub
+  containers:
+  - image: https://hub.docker.com/repository/docker/sszffz/mynginx
+    name: my-container-01
+    imagePullPolicy: Always
+  - image: nginx
+    name: my-container-test02
+    imagePullPolicy: Always

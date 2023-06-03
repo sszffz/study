@@ -1,0 +1,13 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: my-nginx-label
+  namespace: hello
+  labels:
+    aa: bb
+    cc: dd
+    app: my-nginx
+spec:
+  containers:
+  - image: nginx
+    name: my-nginx-ns-label    

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-01
+  namespace: default
+  labels:
+    app: job-01
+spec:
+  completions: 4
+  template:
+    metadata:
+      name: pod-job-test
+      labels:
+        app: job-01
+    spec:
+      containers:
+      - name: pi
+        image: busybox
+        command: ["/bin/sh", "-c", "ping -c 10 baidu.com"]
+      restartPolicy: Never
+    # backoffLimit: 4
+    # activeDeadlinesSeconds: 10

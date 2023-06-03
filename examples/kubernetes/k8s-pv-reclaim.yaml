@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume-10m-delete
+  namespace: de
+  labels:
+    app: pv-volume-10m-delete
+spec:
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: my-nfs-storage
+  capacity:
+    storage: 10m
+  accessModes:
+  - ReadWriteOnce
+  nfs:
+    server: 192.168.1.200
+    path: /nfs/data/delete
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-10-delete
+  namespace: default
+  labels:
+    app: pvc-10-delete
+spec:
+  storageClassName: my-nfs-storage
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5m

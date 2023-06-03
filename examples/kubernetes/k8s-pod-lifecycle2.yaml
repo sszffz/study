@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "pod-lifecycle"
+  namespace: default
+  labels:
+    app: "pod-lifecycle"
+spec:
+  volumes:
+  - name: content-vol
+    emptyDir: {}
+  initContainers:
+  - name: init-c-01
+    image: "alpine"
+    command: ["/bin/sh", "-c", "echo 1234321 > /app/index.html"]
+    volumeMounts:
+    - name: content-vol
+      mountPath: /app
+  containers:
+  - name: pod-lifecycle-01
+    image: "nginx"
+    volumeMounts:
+    - name: content-vol
+      mountPath: /usr/share/nginx/html
+  - name: pod-lifecycle-02
+    image: "alpine"
+    command: ["/bin/sh", "-c", "sleep 30"]

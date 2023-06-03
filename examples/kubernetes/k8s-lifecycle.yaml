@@ -1,0 +1,29 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: my-life
+  namespace: hello
+  labels:
+    aa: bb
+    bb: dd
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    lifecycle:
+      postStart:
+        httpGet:
+          host: "10.244.2.78"
+          path: "/postStart"
+          port: 80
+          scheme: "HTTP"
+          # port: 80
+          # path: "http://10.244.2.78/postStart"
+      preStop:
+        httpGet:
+          host: "10.244.2.78"
+          path: "/preStop"
+          port: 80
+          scheme: "HTTP"        
+          # port: 80
+          # path: "http://10.244.2.78/preStop"

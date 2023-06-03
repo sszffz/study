@@ -1,0 +1,45 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: game-demo
+  namespace: default
+data:
+  player_initial_lives: "3"
+  ui_preperties_file_name: "user-interface.properties"
+  game.properties: |
+    enemy.types=aliens,monsters
+    player.maximum-lives=5
+  user-interface.properties: |
+    color.good=purple
+    color.bad=yellow
+    allow.textmode=true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "configmap-test-5"
+  namespace: default
+  labels:
+    app: "configmap-test"
+spec:
+  volumes:
+  - name: configmap-vol
+    configMap:
+      name: game-demo
+      items: 
+      - key: game.properties
+        path: properties
+  containers:
+  - name: configmap-test
+    image: "busybox"
+    command: ["/bin/sh", "-c", "sleep 2600"]
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: GAME_PROPERTY
+      valueFrom:
+        configMapKeyRef:
+          name: game-demo
+          key: ui_preperties_file_name
+    volumeMounts:
+    - name: configmap-vol
+      mountPath: /app

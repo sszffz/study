@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "liveness-probe-test"
+  namespace: default
+  labels:
+    app: "liveness-probe-test"
+spec:
+  containers:
+  - name: liveness-probe-test
+    image: "busybox"
+    args:
+    - /bin/sh
+    - -c
+    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+    livenessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+      initialDelaySeconds: 5
+    imagePullPolicy: IfNotPresent

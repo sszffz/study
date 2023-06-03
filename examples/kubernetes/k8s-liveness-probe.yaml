@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "liveness-probe"
+  namespace: default
+  labels:
+    app: "liveness-probe"
+spec:
+  volumes:
+  - name: nginx-vol
+    hostPath: 
+      path: /app
+  - name: nginx-html
+    hostPath:
+      path: /html
+  containers:
+  - name: liveness-probe
+    image: "nginx"
+    startupProbe:
+      exec: 
+        command: ["bin/sh", "-c", "cat /app/abc"]
+      periodSeconds: 5
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    livenessProbe:
+      # httpGet:
+      #   host: 127.0.0.1
+      #   path: /abc.html
+      #   port: 80
+      #   scheme: HTTP
+      exec:
+        command: ["/bin/sh", "-c", "cat /usr/share/nginx/html/abc.html"]
+      periodSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /abc.html
+        port: 80
+        scheme: HTTP
+      periodSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    volumeMounts:
+    - name: nginx-vol
+      mountPath: /app
+    - name: nginx-html
+      mountPath: /usr/share/nginx/html
+    imagePullPolicy: IfNotPresent

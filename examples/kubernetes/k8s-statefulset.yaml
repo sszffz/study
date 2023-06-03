@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-nginx
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: ss-nginx # has to match .spec.template.metadata.labels
+  serviceName: "ss-nginx-svc"
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: ss-nginx # has to match .spec.selector.matchLabels
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ss-nginx-svc
+  namespace: default
+spec:
+  selector:
+    app: ss-nginx
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80

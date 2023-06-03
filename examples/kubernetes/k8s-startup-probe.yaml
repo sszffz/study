@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "startup-probe"
+  namespace: default
+  labels:
+    app: "startup-probe"
+spec:
+  volumes:
+  - name: nginx-vol
+    hostPath: 
+      path: /app
+  containers:
+  - name: startup-probe
+    image: "nginx"
+    startupProbe:
+      exec: 
+        command: ["bin/sh", "-c", "cat /app/abc"]
+      periodSeconds: 5
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    volumeMounts:
+    - name: nginx-vol
+      mountPath: /app
+    imagePullPolicy: IfNotPresent

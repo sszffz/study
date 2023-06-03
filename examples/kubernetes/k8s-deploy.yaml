@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  mydeploy-01
+  namespace: default
+  labels:
+    app:  test-01
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pppp
+  template:
+    metadata:
+      labels:
+        app:  pppp
+    spec:
+      # initContainers:
+        # Init containers are exactly like regular containers, except:
+          # - Init containers always run to completion.
+          # - Each init container must complete successfully before the next one starts.
+      containers:
+      - name:  nginix-01
+        image:  nginx
+        imagePullPolicy: IfNotPresent

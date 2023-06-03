@@ -1,6 +1,7 @@
 from re import X
-from turtle import forward
 import torch
+import imageio
+
 
 # class MyDecisionGate(torch.nn.Module):
 #     def forward(self, x):
@@ -90,13 +91,93 @@ import torch
 # print(loaded.code)
 
 
-loaded = torch.jit.load('wrapped_rnn.pt')
-print("*"*20)
-print(loaded)
-print("*"*20)
-print(loaded.code)
+# loaded = torch.jit.load('wrapped_rnn.pt')
+# print("*"*20)
+# print(loaded)
+# print("*"*20)
+# print(loaded.code)
 
-device = torch.device('cpu')
-dummy_input = torch.randn(3, 4, device=device)
-dummy_output = loaded(dummy_input)
-torch.onnx.export(loaded, dummy_input, "wrapped_rnn.onnx")
+# device = torch.device('cpu')
+# dummy_input = torch.randn(3, 4, device=device)
+# dummy_output = loaded(dummy_input)
+# torch.onnx.export(loaded, dummy_input, "wrapped_rnn.onnx")
+
+
+# print(torch.__version__)
+# # a = torch.ones(3, 2)
+# a = torch.tensor([[1, 2], [3, 4], [5, 6]])
+# b = a.reshape(2, 3)
+
+# a_s = a.storage()
+# b_s = b.storage()
+
+
+# ix = torch.tensor([0, 0, 0], dtype=torch.int64)
+# iy = torch.tensor([0, 1, 2], dtype=torch.int64)
+
+# c = a[iy, ix]
+
+# print(c)
+# print(c.storage())
+
+# img_arr = imageio.imread('C:/Users/yunfe/OneDrive/Pictures/iphone110522/HJZA0007.JPG')
+# print(img_arr.shape)
+
+# batch_size = 3
+# batch = torch.zeros(batch_size, 3, 256, 256, dtype=torch.uint8)
+
+# test = batch[:,0]
+
+
+vol_arr = imageio.volread("C:/Users/yunfe/Downloads/LVSA_1/LVSA_1/series1301-B/", 'DICOM')
+print(vol_arr.shape)
+vol = torch.from_numpy(vol_arr).float()
+vol = torch.unsqueeze(vol, 0)
+print(vol.shape)
+
+
+import csv
+import numpy as np
+wine_path = "D:/download/DL/winequality-white.csv"
+col_list = next(csv.reader(open(wine_path), delimiter=';'))
+
+wineq_numpy = np.loadtxt(wine_path, dtype=np.float32, delimiter=";", skiprows=1)
+
+print(wineq_numpy)
+
+wineq = torch.from_numpy(wineq_numpy)
+
+data = wineq[:,:-1]
+target = wineq[:,-1].long()
+
+target_onehot = torch.zeros(target.shape[0], 10)
+target_onehot.scatter_(1, target.unsqueeze(1), 1.0)
+
+print(target_onehot)
+
+data_mean = torch.mean(data, dim=0)
+data_var = torch.var(data, dim=0)
+print(data_mean)
+print(data_var)
+
+data_normalized = (data - data_mean) / torch.sqrt(data_var + 0.001)
+print(data_normalized)
+
+bad_indexes = target <= 3
+print(bad_indexes.shape, bad_indexes.dtype, bad_indexes.sum())
+
+bad_data = data[bad_indexes]
+print(bad_data.shape)
+
+bad_data = data[target <=3]
+mid_data = data[(target > 3) & (target < 7)]
+good_data = data[target >= 7]
+
+bad_mean = torch.mean(bad_data, dim=0)
+mid_mean = torch.mean(mid_data, dim=0)
+good_mean = torch.mean(good_data, dim=0)
+
+for i, args in enumerate(zip(col_list, bad_mean, mid_mean, good_mean)):
+    print('{:2} {:20} {:6.2f} {:6.2f} {:6.2f}'.format(i, *args))
+
+pass

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-cluster
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: mysql-cluster # has to match .spec.template.metadata.labels
+  serviceName: "mysql-cluster"
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: mysql-cluster # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: mysql-cluster
+        image: mysql:8.0.25
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000        
+        ports:
+        - containerPort: 3306
+          name: mysql-port
+        volumeMounts:
+        - name: mysql-cnf
+          mountPath: /etc/mysql/conf.d
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "123456"
+        - name: MYSQL_DATABASE
+          value: "db_test"
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-cnf
+    spec:
+      storageClassName: "nfs-client"
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20m  
+  - metadata:
+      name: mysql-data
+    spec:
+      storageClassName: "nfs-client"
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-cluster
+  namespace: default
+spec:
+  selector:
+    app: mysql-cluster
+  type: NodePort
+  # ClusterIP: None
+  sessionAffinity: None
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+  - name: mysql-port
+    protocol: TCP
+    port: 3306
+    targetPort: 
+    # If you set the `spec.type` field to `NodePort` and you want a specific port number,
+    # you can specify a value in the `spec.ports[*].nodePort` field.

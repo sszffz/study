@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "pod-volume-test"
+  namespace: default
+  labels:
+    app: "pod-volume-test"
+spec:
+  volumes:
+  - name: app
+    secret:
+      secretName: db-user-pass
+  containers:
+  - name: pod-volume-test
+    image: "busybox"
+    command: ["/bin/sh", "-c", "sleep 3600"]
+    volumeMounts:
+    - name: app
+      mountPath: /app
+    imagePullPolicy: IfNotPresent
+

@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "pod-nfs-pvc-01"
+  namespace: default
+  labels:
+    app: "pod-nfs-pvc-01"
+spec:
+  containers:
+  - name: pod-nfs-pvc-01
+    image: "nginx"
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort:  80
+      name:  http
+    volumeMounts:
+    - name: localtime
+      mountPath: /etc/localtime
+    - name: html
+      mountPath: /usr/share/nginx/html
+  volumes:
+    - name: localtime
+      hostPath:
+        path: /usr/share/zoneinfo/Asia/Shanghai
+    - name: html
+      persistentVolumeClaim:
+        claimName: nginx-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-pvc
+  namespace: default
+  labels:
+    app: nginx-pvc
+spec:
+  storageClassName:  my-nfs-pv-10m-storage
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50m

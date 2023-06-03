@@ -1,0 +1,29 @@
+piVersion: v1
+kind: Service
+metadata:
+  name: service-no-selector
+  namespace: default
+spec:
+  type: ClusterIP
+  ports:
+  - name: abc
+    port: 80
+    targetPort: 80
+---
+# Because this Service has no selector, the corresponding Endpoint object is not created automatically.
+# You can manually map the Service to the network address and port where it’s running,
+# by adding an Endpoint object manually:
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: service-no-selector
+  namespace: default
+subsets:
+- addresses:
+  - ip: 10.244.1.247
+  - ip: 10.244.1.2
+  - ip: 142.250.191.196
+  ports:
+  - name: abc
+    port: 80
+    protocol: TCP

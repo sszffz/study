@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  mydeploy-01
+  namespace: default
+  labels:
+    app:  canary-nginx-deploy-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: canary-nginx
+      v: v1
+  template:
+    metadata:
+      labels:
+        app:  canary-nginx
+        v: v1
+    spec:
+      # initContainers:
+        # Init containers are exactly like regular containers, except:
+          # - Init containers always run to completion.
+          # - Each init container must complete successfully before the next one starts.
+      containers:
+      - name:  nginix-01
+        image:  nginx
+        imagePullPolicy: IfNotPresent

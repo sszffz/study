@@ -1,0 +1,14 @@
+# LimitRange for Pod or Container
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-min-max-demol-lr
+  namespace: hello
+spec:
+  limits:
+  - max:
+      cpu: "800m"
+    min: 
+      cpu: "200m"
+    type:
+      Container

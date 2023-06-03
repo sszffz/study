@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "pod-lifecycle"
+  namespace: default
+  labels:
+    app: "pod-lifecycle"
+spec:
+  containers:
+  - name: pod-lifecycle-01
+    image: "nginx"
+  - name: pod-lifecycle-02
+    image: "alpine"
+    command: ["/bin/sh", "-c", "sleep 30"]

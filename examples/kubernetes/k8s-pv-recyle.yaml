@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume-12m-recycle
+  namespace: default
+  labels:
+    app: pv-volume-12m-recycle
+spec:
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: my-nfs-recyle-storage
+  capacity:
+    storage: 12m
+  accessModes:
+  - ReadWriteOnce
+  nfs:
+    server: 192.168.1.200
+    path: /nfs/data/recycle
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-12-recyle
+  namespace: default
+  labels:
+    app: pvc-12-recyle
+spec:
+  storageClassName: my-nfs-recyle-storage
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 11m

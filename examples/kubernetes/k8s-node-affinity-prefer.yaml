@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "busy-affinity-pref"
+  namespace: default
+  labels:
+    app: "busy-affinity-pref"
+spec:
+  containers:
+  - name: busy-affinity-pref
+    image: "busybox"
+    command: ["/bin/sh", "-c", "sleep 3600"]
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: disk
+            values: ["40"]
+            operator: Gt
+        weight: 90
+      - preference:
+          matchExpressions:
+          - key: gpu
+            values: ["4000"]
+            operator: Gt
+        weight: 10
+  restartPolicy: Always
